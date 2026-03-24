@@ -20,7 +20,7 @@ public class Willow extends  Plant{
     }
 
     public Willow(double mass, double health, double locX, double locY) {
-        super(mass, health, locX, locY, 0.6);
+        super(mass, health, locX, locY, 0.4);
     }
     /*
      *  clone子代

@@ -28,15 +28,12 @@ public class Lemming extends Animal {
      * 减去生命值，并判断是否死亡；减少健康；判定子代
      */
     @Override
-    public void advanceWeek() throws CreatureDeathException{
-        setMass(getMass()*(1-getWeeklyLossRate())-3.0);
-        if (this.getHealth() <= 0) {
-            throw new CreatureDeathException("A lemming dead");
+    public void advanceWeek() throws CreatureDeathException {
+        setMass(getMass() * (1.0 - getWeeklyLossRate()) - 2.0);
+        if (getMass() <= 0.0) {
+            throw new CreatureDeathException("A lemming died");
         }
-        setHealth(getHealth()-0.2);
-        if (this.getHealth() <= 0) {
-            setHealth(0);
-        }
+        setHealth(Math.max(0.0, getHealth() - 0.2));
     }
     /*
      * 判定是否繁殖
@@ -79,20 +76,22 @@ public class Lemming extends Animal {
             return false;
         }else if(other instanceof Crowberry){
             double success = Math.random();
-            if (success <= ( 0.1 + 0.1 * other.compareTo(this))) {
+            if (success <= ( 0.2 + 0.2 * other.compareTo(this))) {
                 feedOn(other);
                 return true;
             }else{
                 return false;
             }
-        }else{
+        }else if(other instanceof Willow){
             double success = Math.random();
-            if (success <= 0.3) {
+            if (success <= 0.5) {
                 feedOn(other);
                 return true;
             }else{
                 return false;
             }
+        }else {
+            return false;
         }
     }
     /*
@@ -112,6 +111,7 @@ public class Lemming extends Animal {
             reducedMass = other.getMass();
             other.setMass(0.0);
         }
+        setMass(getMass() + reducedMass*0.4);
         setHealth(getHealth()+0.2);
         if (getHealth()>1.0){
             setHealth(1.0);

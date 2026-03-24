@@ -26,7 +26,7 @@ public class Fox extends Animal {
     public Fox(double mass, double health, double locX,
                double locY,boolean isOffspring) {
         super(mass, health, locX, locY,
-                isOffspring ? 0.05 : 0.025, 1000.0);
+                isOffspring ? 0.04 : 0.02, 1000.0);
         offspring = new ArrayList<>();
         }
 
@@ -37,7 +37,7 @@ public class Fox extends Animal {
      */
     @Override
     public void advanceWeek() throws CreatureDeathException {
-        double newMass= getMass() * (1.0 - getWeeklyLossRate()) - 30.0;
+        double newMass= getMass() * (1.0 - getWeeklyLossRate()) - 10.0;
         setMass(newMass);
         if (getMass() <= 0.0) {
             throw new CreatureDeathException("a fox died");
@@ -102,10 +102,10 @@ public class Fox extends Animal {
             }
             double successRate= 0.0;
             if (other instanceof Lemming){
-                successRate = 0.4 + 0.2 * this.compareTo(other);
+                successRate = 0.3 + 0.2 * this.compareTo(other);
             }
-            if (other instanceof Lemming){
-                successRate = 0.1 + 0.1 * other.compareTo(this);
+            if (other instanceof Crowberry){
+                successRate = 0.2 + 0.2 * other.compareTo(this);
             }
             Random rand = new Random();
             double r = rand.nextDouble();
@@ -133,14 +133,14 @@ public class Fox extends Animal {
                 other.setMass(other.getMass() * (1.0 - 0.3));
         }
         if (offspring.size() >= 1) {
-            setMass(getMass() + reducedMass * 0.2);
+            setMass(getMass() + reducedMass * 0.3);
             for (int i = 0; i < offspring.size(); i++) {
                 Fox baby = offspring.get(i);
                 baby.setMass(baby.getMass()
-                            + reducedMass * 0.2 / offspring.size());
+                            + reducedMass * 0.3 / offspring.size());
             }
             }else{
-                setMass(getMass() + reducedMass*0.4);
+                setMass(getMass() + reducedMass*0.5);
             }
             setHealth(getHealth() + 0.2);
             if (getHealth()> 1.0){

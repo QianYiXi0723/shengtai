@@ -21,6 +21,8 @@ import java.io.File;
 import java.util.Scanner;
 import java.io.PrintWriter;
 import java.io.FileNotFoundException;
+import java.util.Set;
+import java.util.HashSet;
 public class ArcticTundra {
     private ArrayList<Creature> allCreatures;
     private int currentWeek;
@@ -31,6 +33,7 @@ public class ArcticTundra {
     private static final double LEMMING_STANDARD_MASS = 50.0;
     private static final double CROWBERRY_STANDARD_MASS = 1000.0;
     private static final double WILLOW_STANDARD_MASS = 80.0;
+    private int initialNumLemming;
 
 
     public int getCurrentWeek() {
@@ -81,7 +84,7 @@ public class ArcticTundra {
             Willow willow = new Willow(WILLOW_STANDARD_MASS, 1.0, x, y);
             allCreatures.add(willow);
         }
-
+        this.initialNumLemming = numLemming;
 
     }
 
@@ -152,100 +155,75 @@ public class ArcticTundra {
      *按周数进行模拟
      */
     public void advanceNWeeks(int n) {
-        for (int i = 0; i < n; i++) {
-            ArrayList<Creature> Copy1allCreatures = new ArrayList<>(allCreatures);
-            ArrayList<Creature> Copy2allCreatures = new ArrayList<>(allCreatures);
+        for (int week = 0; week < n; week++) {
+            // 创建静态副本，避免在遍历过程中修改 allCreatures
+            ArrayList<Creature> copy = new ArrayList<>(allCreatures);
+            // 记录本周已经处理过的猎物（防止重复处理）
+            Set<Creature> processedPrey = new HashSet<>();
+            double totalLemmingMass = getTotalLemmingMass();
+            double threshold = 0.2 * initialNumLemming * LEMMING_STANDARD_MASS;
+            boolean skipLemmingPrey = totalLemmingMass < threshold;
+            for (Creature c : copy) {
+                // ---------- 1. 生命周期 advanceWeek ----------
+                try {
+                    c.advanceWeek();
+                } catch (CreatureDeathException e) {
+                    allCreatures.remove(c);
+                    continue; // 死亡，跳过繁殖和捕食
+                }
 
-            // ---------- 第一阶段：处理所有生物的 advanceWeek 和繁殖 ----------
-            for (Creature Creatures : Copy1allCreatures) {
-                if (Creatures instanceof Fox) {
-                    Fox fox = (Fox) Creatures;
-                    try {
-                        fox.advanceWeek();
-                    } catch (CreatureDeathException e) {
-                        allCreatures.remove(fox);
-                        continue;
-                    }
+                // ---------- 2. 繁殖 ----------
+                if (c instanceof Fox) {
+                    Fox fox = (Fox) c;
                     if (fox.triggerReproduce()) {
                         fox.giveBirth();
                     }
-                    //Fox繁衍结束
-                } else if (Creatures instanceof Lemming) {
-                    Lemming Lemmings = (Lemming) Creatures;
-                    try {
-                        Lemmings.advanceWeek();
-                    } catch (CreatureDeathException e) {
-                        allCreatures.remove(Lemmings);
-                        continue;
+                } else if (c instanceof Lemming) {
+                    if (skipLemmingPrey) {
+                        continue; // 跳过捕食
                     }
-                    if (Lemmings.triggerReproduce()) {
+                    Lemming lemming = (Lemming) c;
+                    if (lemming.triggerReproduce()) {
                         try {
-                            Lemming newlemming = (Lemming) Lemmings.clone();
-                            allCreatures.add(newlemming);
+                            Lemming baby = (Lemming) lemming.clone();
+                            allCreatures.add(baby);
                         } catch (CloneNotSupportedException e) {
                             throw new RuntimeException(e);
                         }
                     }
-                    //Lemming繁衍结束
-                } else if (Creatures instanceof Crowberry) {
-                    Crowberry Crowberrys = (Crowberry) Creatures;
-                    try {
-                        Crowberrys.advanceWeek();
-                    } catch (CreatureDeathException e) {
-                        allCreatures.remove(Crowberrys);
-                        continue;
-                    }
-                } else if (Creatures instanceof Willow) {
-                    Willow Willows = (Willow) Creatures;
-                    try {
-                        Willows.advanceWeek();
-                    } catch (CreatureDeathException e) {
-                        allCreatures.remove(Willows);
-                        continue;
-                    }
                 }
-            }
 
-            // ---------- 第二阶段：捕食处理（独立出来，使用 Copy2allCreatures） ----------
-            for (Creature predator : Copy2allCreatures) {
-                if (predator instanceof Fox) {
-                    Fox fox = (Fox) predator;
-                    for (Creature prey : Copy2allCreatures) {
-                        if (fox.distanceTo(prey) < fox.getActionRadius()) {
-                            fox.preyOn(prey);
-                            if (!prey.isAlive()) {
-                                if (prey instanceof Lemming) {
-                                    allCreatures.remove(prey);
-                                } else if (prey instanceof Willow) {
-                                    Willow newWillow = null;
-                                    try {
-                                        newWillow = ((Willow) prey).clone();
-                                    } catch (CloneNotSupportedException e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                    newWillow.setMass(10.0);
-                                    allCreatures.add(newWillow);
-                                    allCreatures.remove(prey);
-                                }
-                            }
+                // ---------- 3. 捕食（仅对动物） ----------
+                if (c instanceof Animal) {
+                    Animal predator = (Animal) c;
+                    // 创建猎物副本，避免在遍历 allCreatures 时修改它
+                    ArrayList<Creature> preyCopy = new ArrayList<>(allCreatures);
+                    for (Creature prey : preyCopy) {
+                        // 跳过已经处理过的猎物
+                        if (processedPrey.contains(prey)) {
+                            continue;
                         }
-                    }
-                } else if (predator instanceof Lemming) {
-                    Lemming lemming = (Lemming) predator;
-                    for (Creature prey : Copy2allCreatures) {
-                        if (lemming.distanceTo(prey) < lemming.getActionRadius()) {
-                            lemming.preyOn(prey);
+                        if (predator.distanceTo(prey) < predator.getActionRadius()) {
+                            predator.preyOn(prey);
                             if (!prey.isAlive()) {
-                                if (prey instanceof Willow) {
-                                    Willow newWillow = null;
-                                    try {
-                                        newWillow = ((Willow) prey).clone();
-                                    } catch (CloneNotSupportedException e) {
-                                        throw new RuntimeException(e);
+                                processedPrey.add(prey); // 标记已处理
+                                if (predator instanceof Fox) {
+                                    // Fox 只会捕食 Lemming（Crowberry 不会死亡）
+                                    if (prey instanceof Lemming) {
+                                        allCreatures.remove(prey);
                                     }
-                                    newWillow.setMass(10.0);
-                                    allCreatures.add(newWillow);
-                                    allCreatures.remove(prey);
+                                } else if (predator instanceof Lemming) {
+                                    // Lemming 捕食 Willow（Crowberry 不会死亡）
+                                    if (prey instanceof Willow) {
+                                        try {
+                                            Willow newWillow = ((Willow) prey).clone();
+                                            newWillow.setMass(1.0);
+                                            allCreatures.add(newWillow);
+                                            allCreatures.remove(prey);
+                                        } catch (CloneNotSupportedException e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -289,7 +267,6 @@ public class ArcticTundra {
                     continue; // 忽略未知类型
                 }
 
-                // 按照格式写入一行（使用 %.1f 保留一位小数，与示例一致）
                 String line = String.format("%s %.1f %.1f %.1f %.1f %.1f %.1f %.1f",
                         species, mass, health, locX, locY, off1, off2, off3);
                 writer.println(line);
@@ -407,7 +384,7 @@ public class ArcticTundra {
         // 可选：打印一些统计验证（根据作业建议，可以打印总质量等）
         System.out.println("总狐狸质量: " + tundra2.getTotalFoxMass());
         System.out.println("总旅鼠质量: " + tundra2.getTotalLemmingMass());
-        System.out.println("总黑莓质量: " + tundra2.getTotalCrowberryMass());
+        System.out.println("总岩高兰质量: " + tundra2.getTotalCrowberryMass());
         System.out.println("总柳树质量: " + tundra2.getTotalWillowMass());
     }
 
@@ -428,7 +405,7 @@ public class ArcticTundra {
         int numFox = scanner.nextInt();
         System.out.print("请输入旅鼠数量: ");
         int numLemming = scanner.nextInt();
-        System.out.print("请输入黑莓数量: ");
+        System.out.print("请输入岩高兰数量: ");
         int numCrowberry = scanner.nextInt();
         System.out.print("请输入柳树数量: ");
         int numWillow = scanner.nextInt();
@@ -461,7 +438,7 @@ public class ArcticTundra {
     private static void printStatus(ArcticTundra tundra) {
         System.out.printf("狐狸总质量: %.2f\n", tundra.getTotalFoxMass());
         System.out.printf("旅鼠总质量: %.2f\n", tundra.getTotalLemmingMass());
-        System.out.printf("黑莓总质量: %.2f\n", tundra.getTotalCrowberryMass());
+        System.out.printf("岩高兰总质量: %.2f\n", tundra.getTotalCrowberryMass());
         System.out.printf("柳树总质量: %.2f\n", tundra.getTotalWillowMass());
         System.out.println();
     }
